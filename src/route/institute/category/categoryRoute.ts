@@ -1,15 +1,16 @@
-import { Router } from 'express';
-import isLoggedIn from "../../../middleware/middleware";
-import asyncErrorHandler from "../../../services/asyncErrorHandler";
-import { createCategory, getCategories, deleteCategory } from "../../../controller/institute/category/categoryController";
 
-const router: Router = Router();
 
-router.route("/")
-  .post(isLoggedIn, asyncErrorHandler(createCategory))
-  .get(isLoggedIn, asyncErrorHandler(getCategories));
+import express, { Router } from 'express'
+import { createCategory, deleteCategory, getCategories } from '../../../controller/institute/category/categoryController';
+import asyncErrorHandler from '../../../services/asyncErrorHandler';
+import { isLoggedIn } from '../../../middleware/middleware';
 
-router.route("/:id")
-  .delete(isLoggedIn, asyncErrorHandler(deleteCategory));
+const router:Router = express.Router()
 
-export default router;
+
+router.route("/").post(isLoggedIn,asyncErrorHandler(createCategory))
+.get(isLoggedIn,asyncErrorHandler(getCategories))
+
+router.route("/:id").delete(isLoggedIn,asyncErrorHandler(deleteCategory))
+
+export default router ; 

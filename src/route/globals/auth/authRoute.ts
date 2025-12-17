@@ -1,17 +1,11 @@
-import express, { Router } from 'express';
-import AuthController from '../../../controller/globals/auth/authController';
-import{ Request, Response } from 'express';
 
-const router: Router = express.Router();
+import express, { Router } from "express"
+import AuthController from "../../../controller/globals/auth/authController"
+import asyncErrorHandler from "../../../services/asyncErrorHandler"
 
-// Wrap async controller to handle errors
-router.route('/auth/register')
-  .post((req: Request, res: Response) => {
-    AuthController.registerUser(req, res);
-  });
-router.route("/auth/login").post((req: Request, res: Response) => {
-  AuthController.loginUser(req, res);
-});
+const router:Router = express.Router()
 
-export default router;
-export { router as authRouter };
+router.route("/register").post(asyncErrorHandler(AuthController.registerUser))
+router.route("/login").post(asyncErrorHandler(AuthController.loginUser))
+
+export default router

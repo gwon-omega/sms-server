@@ -16,10 +16,8 @@ class User extends Model {
 
   @Column({
     type: DataType.STRING,
-    allowNull: false,
-    unique: true
   })
-  declare username: string;
+  declare userName: string;
 
   @Column({
     type: DataType.STRING,

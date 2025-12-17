@@ -2,91 +2,6 @@ import {Request,Response} from "express"
 import User from "../../../database/models/userModel"
 import bcrypt from "bcrypt"
 import generateJWTToken from "../../../services/generateJwtToken"
-
-class AuthController{
-   static async registerUser(req:Request,res:Response){
-
-    if(req.body == undefined){
-        console.log("triggereed")
-        return res.status(400).json({
-            message  : "No data was sent!!"
-        })
-    }
-    const {username,password,email} = req.body
-    if(!username || !password || !email){
-      return res.status(400).json({
-         message : "Please provide username, password, email"
-     })
-    }
-
-    await User.create({
-         userName :username,
-         password : bcrypt.hashSync(password,12), //blowfish
-         email : email
-     })
-     res.status(201).json({
-         message : "User registered successfully"
-     })
-   }
-   static async loginUser(req:Request,res:Response){
-    const {email,password} = req.body
-    if(!email || !password){
-       return res.status(400).json({
-            message : "Please provide email,password "
-        })
-    }
-    // check if email exist or not in our users table
-    const data = await User.findAll({
-        where : {
-            email
-        }
-    })
-        // select * from User where email="manish@gmail.com" AND age = 22
-    if(data.length ==0){
-        res.status(404).json({
-            message : "Not registered!!"
-        })
-    }else{
-        // check password , nepal123 --> hash conversion --> fsdkjfsdfjsd
-        // compare(plain password user bata aako password, hashed password register huda table ma baseko)
-         const isPasswordMatch = bcrypt.compareSync(password,data[0].password)
-         if(isPasswordMatch){
-            // login vayo , token generation
-         const token = generateJWTToken({id:data[0].id})
-            res.status(200).json({
-                data:{
-                    token : token,
-                    username:data[0].username
-                },
-                message : "Logged in success"
-            })
-         }else{
-            res.status(403).json({
-                message : "Invalid email or password"
-            })
-         }
-
-    }
-   }
-
-}
-
-export default AuthController
-/*
-
-REGISTER/SIGNUP
-incoming data  --> username, email, password
-processing/checking --> email valid, compulsory data aaaunu paryo
-db--> table--> query --> table ma insert/read/delete/update
-
-LOGIN/SIGNIN
-LOGOUT
-FORGOT PASSWORD
-RESET PASSWORD/ OTP
-
-*/
-
-
 // json data --> req.body // username,email,password
 // files --> req.file // files
 // const registerUser = async (req:Request,res:Response)=>{
@@ -131,7 +46,23 @@ email login (SSO)
 
 */
 
+class AuthController{
+   static async registerUser(req:Request,res:Response){
 
+    if(req.body == undefined){
+        console.log("triggereed")
+        res.status(400).json({
+            message  : "No data was sent!!"
+        })
+        return
+    }
+    const {username,password,email} = req.body
+    if(!username || !password || !email){
+      res.status(400).json({
+         message : "Please provide username, password, email"
+     })
+     return
+    }
 //    const [data] =  await User.findAll({
 //         where : {
 //             email
@@ -141,28 +72,74 @@ email login (SSO)
 //         // already exists with that email
 //     }
      // insert into Users table
+     await User.create({
+         userName :username,
+         password : bcrypt.hashSync(password,12), //blowfish
+         email : email
+     })
+     res.status(201).json({
+         message : "User registered successfully"
+     })
+   }
 
-    /*
-    numbers = [1]
-    numbers[0]
-    data = [
-    {
-    email : "manish@gmail.com",
-    username : "manish",
-    password : "jldsjfslkfj3423423"
-    },
-     {
-    email : "manish@gmail.com",
-    username : "manish",
-    haha : "hehe"
+
+   static async loginUser(req: Request, res: Response) {
+  try {
+    const { email, password } = req.body;
+
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Please provide email and password",
+      });
     }
-    ]
-    data[0].password
-    data[1].haha
+
+    // Check if user exists
+    const data = await User.findAll({
+      where: { email },
+    });
+
+    if (data.length === 0) {
+      return res.status(404).json({
+        message: "User not registered!",
+      });
+    }
+
+    const user = data[0];
+
+    // Compare password
+    const isPasswordMatch = bcrypt.compareSync(password, user.password);
+
+    if (!isPasswordMatch) {
+      return res.status(403).json({
+        message: "Invalid email or password",
+      });
+    }
+
+    // Generate token
+    const token = generateJWTToken({ id: user.id });
+
+    // Success response
+    return res.status(200).json({
+      data: {
+        token,
+        username: user.userName,
+      },
+      message: "Login successful",
+    });
+
+  } catch (error) {
+    console.error("🔥 Login error:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+   }
+}
 
 
-    */
 
+export default AuthController
 
 
 // export  {registerUser}

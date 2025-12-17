@@ -6,39 +6,25 @@ import { QueryTypes } from "sequelize";
 
 
 const createCourse = async (req:IExtendedRequest,res:Response)=>{
-    try {
-        const instituteNumber = req.user?.currentInstituteNumber;
-        const {coursePrice, courseName,courseDescription, courseDuration, courseLevel,categoryId } = req.body;
-        console.log('Incoming course creation request:', req.body);
-        if(!coursePrice || !courseName || !courseDescription || !courseDuration || !courseLevel || !categoryId){
-            return res.status(400).json({
-                message : "Please provide coursePrice, courseName, courseDescription, courseDuration, courseLevel,categoryId"
-            });
-        }
-        const courseThumbnail = req.file ? req.file.path : null;
-        try {
-            const returnedData = await sequelize.query(`INSERT INTO course_${instituteNumber}(coursePrice,courseName,courseDescription,courseDuration,courseLevel,courseThumbnail,categoryId) VALUES(?,?,?,?,?,?,?)`,{
-                type : QueryTypes.INSERT,
-                replacements : [coursePrice, courseName,courseDescription,courseDuration,courseLevel,courseThumbnail,categoryId]
-            });
-            console.log('Course insert result:', returnedData);
-            res.status(200).json({
-                message : 'course created successfully'
-            });
-        } catch (err:any) {
-            console.error('Error inserting course:', err);
-            if (err.original && err.original.code === 'ER_NO_REFERENCED_ROW_2') {
-                return res.status(400).json({ message: 'Invalid categoryId: no such category exists.' });
-            }
-            if (err.original && err.original.code === 'ER_DUP_ENTRY') {
-                return res.status(400).json({ message: 'Course name must be unique.' });
-            }
-            res.status(500).json({ message: 'Error creating course', error: err.message });
-        }
-    } catch (err:any) {
-        console.error('Unexpected error in createCourse:', err);
-        res.status(500).json({ message: 'Unexpected error', error: err.message });
-    }
+    const instituteNumber = req.user?.currentInstituteNumber
+const {coursePrice, courseName,courseDescription, courseDuration, courseLevel,categoryId } = req.body
+if(!coursePrice || !courseName || !courseDescription || !courseDuration || !courseLevel || !categoryId){
+    return res.status(400).json({
+        messsage : "Please provide coursePrice, courseName, courseDescription, courseDuration, courseLevel,categoryId"
+    })
+}
+
+const courseThumbnail = req.file ? req.file.path : null
+
+const returnedData = await sequelize.query(`INSERT INTO course_${instituteNumber}(coursePrice,courseName,courseDescription,courseDuration,courseLevel,courseThumbnail,categoryId) VALUES(?,?,?,?,?,?,?)`,{
+    type : QueryTypes.INSERT,
+    replacements : [coursePrice, courseName,courseDescription,courseDuration,courseLevel,courseThumbnail,categoryId]
+})
+
+console.log(returnedData)
+res.status(200).json({
+    message : 'course created successfully'
+})
 }
 
 const deleteCourse = async(req:IExtendedRequest,res:Response)=>{
@@ -69,7 +55,7 @@ const deleteCourse = async(req:IExtendedRequest,res:Response)=>{
 const getAllCourse = async (req:IExtendedRequest,res:Response)=>{
     const instituteNumber = req.user?.currentInstituteNumber;
 
-    const courses = await sequelize.query(`SELECT * FROM course_${instituteNumber} JOIN category_${instituteNumber} ON course_${instituteNumber}.categoryId = category_${instituteNumber}.id`,{
+    const courses = await sequelize.query(`SELECT c.id,c.courseName FROM course_${instituteNumber} AS c JOIN category_${instituteNumber} AS cat ON c.categoryId = cat.id`,{
         type : QueryTypes.SELECT
     })
     res.status(200).json({

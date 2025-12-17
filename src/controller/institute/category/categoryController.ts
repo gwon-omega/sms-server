@@ -2,6 +2,7 @@ import { Response } from "express";
 import { IExtendedRequest } from "../../../middleware/type";
 import sequelize from "../../../database/connection";
 import { QueryTypes } from "sequelize";
+import { CreatedAt } from "sequelize-typescript";
 
 
 
@@ -20,8 +21,17 @@ const createCategory = async(req:IExtendedRequest,res:Response)=>{
                 type : QueryTypes.INSERT,
                 replacements : [categoryName,categoryDescription]
             });
+            const [CategoryData]:{id:string,createdAt:Date}[] = await sequelize.query(`SELECT id,
+                createdAt from category_$(instituteNumber) WHERE categoryName=?`,{
+            replacements:[categoryName],
+            type:QueryTypes.SELECT})
+            console.log(CategoryData)
             res.status(200).json({
-                message : "Category added successfully"
+                message : "Category added successfully",
+                categoryName,
+                categoryDescription,
+                id:CategoryData.id,
+                CreatedAt:CategoryData.createdAt
             });
         } catch (err:any) {
             console.error('Error inserting category:', err);
