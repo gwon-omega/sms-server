@@ -2,10 +2,26 @@
 
 
 
-import express, { Router } from "express"
+import * as express from "express"
+import { Router } from "express"
 
 
-import { createCategoryTable, createChapterLessonTable, createCourseChapterTable, createCourseTable, createInstitute, createStudentTable, createTeacherTable } from "../../controller/institute/instituteController"
+import {
+    createCategoryTable,
+    createChapterLessonTable,
+    createCourseChapterTable,
+    createCourseTable,
+    createInstitute,
+    createStudentTable,
+    createTeacherTable,
+    createAttendanceTable,
+    createAssessmentTable,
+    createResultTable,
+    createFeeTables,
+    createExamScheduleTable,
+    createSecurityLogsTable,
+    createLibraryTables
+} from "../../controller/institute/instituteController"
 import asyncErrorHandler from "../../services/asyncErrorHandler"
 import { isLoggedIn, restrictTo } from "../../middleware/middleware"
 import { UserRole } from "../../middleware/type"
@@ -13,16 +29,22 @@ import { UserRole } from "../../middleware/type"
 
 const router:Router = express.Router()
 
-router.route("/").post(isLoggedIn, 
+router.route("/").post(isLoggedIn,
     createInstitute,
     createTeacherTable,
-    createStudentTable, 
-    createCategoryTable, 
+    createStudentTable,
+    createCategoryTable,
+    createCourseTable,
     createCourseChapterTable,
     createChapterLessonTable,
-    asyncErrorHandler(createCourseTable))
+    createAttendanceTable,
+    createAssessmentTable,
+    createResultTable,
+    createFeeTables,
+    createExamScheduleTable,
+    createSecurityLogsTable,
+    asyncErrorHandler(createLibraryTables))
 
 
 export default router
 
- 

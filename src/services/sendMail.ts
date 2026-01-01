@@ -5,8 +5,10 @@ import nodemailer from 'nodemailer'
 interface IMailInformation{
     to : string,
     subject : string,
-    text : string
+    text? : string,
+    html? : string
 }
+
 
 const sendMail = async (mailInformation:IMailInformation)=>{
  // mail pathaune logic goes here :
@@ -28,8 +30,10 @@ const sendMail = async (mailInformation:IMailInformation)=>{
     from : "Ed-Tech <edtechsaas@gmail.com>",
     to : mailInformation.to,
     subject : mailInformation.subject,
-    html : mailInformation.text
+    text : mailInformation.text || '',
+    html : mailInformation.html || mailInformation.text || ''
  }
+
 
 try {
     await transporter.sendMail(mailFormatObject)

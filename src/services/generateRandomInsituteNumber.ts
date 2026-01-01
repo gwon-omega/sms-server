@@ -1,10 +1,15 @@
+import { randomUUID } from 'crypto';
+
 /**
- * Generates a random 5-digit institute number as a string.
- * Ensures leading zeros are preserved if needed.
+ * Generates a UUID-based institute identifier.
+ * Removes hyphens to make it SQL table-name safe.
+ *
+ * Example output: "a1b2c3d4e5f67890a1b2c3d4e5f67890" (32 chars)
  */
 const generateRandomInsituteNumber = (): string => {
-    const number = Math.floor(Math.random() * 100000);
-    return number.toString().padStart(5, '0');
+    // Generate UUID and remove hyphens for SQL compatibility
+    const uuid = randomUUID().replace(/-/g, '');
+    return uuid;
 };
 
 export default generateRandomInsituteNumber;

@@ -1,16 +1,30 @@
+import * as jose from "jose";
 
-import jwt from 'jsonwebtoken'
+const SECRET_KEY = new TextEncoder().encode(process.env.JWT_SECRET || "eduflow-secret-key-2024");
+const ALG = "HS256";
 
-const generateJWTToken = (data : {
-    id : string,
-    instituteNumber ?: string
-})=>{
-    //@ts-ignore
-    const token =  jwt.sign(data,process.env.JWT_SECRET!,{
-        expiresIn : process.env.JWT_EXPIRES_IN
-       })
-    return token;
+export interface TokenPayload {
+    id: string;
+    role?: string;
+    currentInstituteNumber?: string | number | null;
+    instituteNumber?: string | number | null;
 }
 
+const generateJWTToken = async (payload: TokenPayload): Promise<string> => {
+    const jwt = await new jose.SignJWT(payload as any)
+        .setProtectedHeader({ alg: ALG })
+        .setIssuedAt()
+        .setExpirationTime("7d")
+        .sign(SECRET_KEY);
 
-export default generateJWTToken
+    return jwt;
+};
+
+export const verifyJwtToken = async (token: string): Promise<TokenPayload> => {
+    const { payload } = await jose.jwtVerify(token, SECRET_KEY, {
+        algorithms: [ALG],
+    });
+    return payload as unknown as TokenPayload;
+};
+
+export default generateJWTToken;

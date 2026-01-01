@@ -1,81 +1,107 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import sequelize from "../../../database/connection";
 import { IExtendedRequest } from "../../../middleware/type";
 import { QueryTypes } from "sequelize";
+import { buildTableName } from "../../../services/sqlSecurityService";
 
+/**
+ * Course Controller
+ * SECURITY: All table names are built using buildTableName() to prevent SQL injection
+ */
 
+const createCourse = async (req: IExtendedRequest, res: Response) => {
+    const instituteNumber = req.user?.currentInstituteNumber;
+    const courseTable = buildTableName('course_', instituteNumber);
 
-const createCourse = async (req:IExtendedRequest,res:Response)=>{
-    const instituteNumber = req.user?.currentInstituteNumber
-const {coursePrice, courseName,courseDescription, courseDuration, courseLevel,categoryId } = req.body
-if(!coursePrice || !courseName || !courseDescription || !courseDuration || !courseLevel || !categoryId){
-    return res.status(400).json({
-        messsage : "Please provide coursePrice, courseName, courseDescription, courseDuration, courseLevel,categoryId"
-    })
-}
+    const { coursePrice, courseName, courseDescription, courseDuration, courseLevel, categoryId } = req.body;
 
-const courseThumbnail = req.file ? req.file.path : null
-
-const returnedData = await sequelize.query(`INSERT INTO course_${instituteNumber}(coursePrice,courseName,courseDescription,courseDuration,courseLevel,courseThumbnail,categoryId) VALUES(?,?,?,?,?,?,?)`,{
-    type : QueryTypes.INSERT,
-    replacements : [coursePrice, courseName,courseDescription,courseDuration,courseLevel,courseThumbnail,categoryId]
-})
-
-console.log(returnedData)
-res.status(200).json({
-    message : 'course created successfully'
-})
-}
-
-const deleteCourse = async(req:IExtendedRequest,res:Response)=>{
-    const instituteNumber = req.user?.currentInstituteNumber
-    const courseId = req.params.id
-    // first check if course exists or not , if exists --> delete else not delete
-    const courseData = await sequelize.query(`SELECT * FROM course_${instituteNumber} WHERE id=?`,{
-        replacements : [courseId],
-        type : QueryTypes.SELECT
-    })
-
-    if(courseData.length == 0){
-        return res.status(404).json({
-            message : "no course with that id"
-        })
+    if (!coursePrice || !courseName || !courseDescription || !courseDuration || !courseLevel || !categoryId) {
+        return res.status(400).json({
+            message: "Please provide coursePrice, courseName, courseDescription, courseDuration, courseLevel, categoryId"
+        });
     }
 
-    await sequelize.query(`DELETE FROM course_${instituteNumber} WHERE id = ?`,{
-        replacements : [courseId],
-        type : QueryTypes.DELETE
-    })
+    const courseThumbnail = req.file ? req.file.path : null;
+
+    await sequelize.query(
+        `INSERT INTO \`${courseTable}\` (coursePrice, courseName, courseDescription, courseDuration, courseLevel, courseThumbnail, categoryId) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        {
+            type: QueryTypes.INSERT,
+            replacements: [coursePrice, courseName, courseDescription, courseDuration, courseLevel, courseThumbnail, categoryId]
+        }
+    );
+
     res.status(200).json({
-        message : "course deleted successfully"
-    })
-}
+        message: 'Course created successfully'
+    });
+};
 
-
-const getAllCourse = async (req:IExtendedRequest,res:Response)=>{
+const deleteCourse = async (req: IExtendedRequest, res: Response) => {
     const instituteNumber = req.user?.currentInstituteNumber;
+    const courseTable = buildTableName('course_', instituteNumber);
+    const { id: courseId } = req.params;
 
-    const courses = await sequelize.query(`SELECT c.id,c.courseName FROM course_${instituteNumber} AS c JOIN category_${instituteNumber} AS cat ON c.categoryId = cat.id`,{
-        type : QueryTypes.SELECT
-    })
+    // Check if course exists
+    const courseData = await sequelize.query(
+        `SELECT * FROM \`${courseTable}\` WHERE id = ?`,
+        {
+            replacements: [courseId],
+            type: QueryTypes.SELECT
+        }
+    );
+
+    if (courseData.length === 0) {
+        return res.status(404).json({
+            message: "Course not found"
+        });
+    }
+
+    await sequelize.query(
+        `DELETE FROM \`${courseTable}\` WHERE id = ?`,
+        {
+            replacements: [courseId],
+            type: QueryTypes.DELETE
+        }
+    );
+
     res.status(200).json({
-        message : "Course fetched",
-        data : courses,
+        message: "Course deleted successfully"
+    });
+};
 
-    })
-}
-
-const getSingleCourse = async(req:IExtendedRequest,res:Response)=>{
+const getAllCourse = async (req: IExtendedRequest, res: Response) => {
     const instituteNumber = req.user?.currentInstituteNumber;
-    const courseId = req.params.id
-    const course = await sequelize.query(`SELECT * FROM course_${instituteNumber} WHERE id = ?`,{
-        replacements : [courseId],
-        type : QueryTypes.SELECT
-    })
-    res.status(200).json({
-        message : "single course fetched",
-        data : course
-    })
-}
+    const courseTable = buildTableName('course_', instituteNumber);
+    const categoryTable = buildTableName('category_', instituteNumber);
 
-export {createCourse,deleteCourse,getSingleCourse,getAllCourse}
+    const courses = await sequelize.query(
+        `SELECT c.id, c.courseName FROM \`${courseTable}\` AS c JOIN \`${categoryTable}\` AS cat ON c.categoryId = cat.id`,
+        { type: QueryTypes.SELECT }
+    );
+
+    res.status(200).json({
+        message: "Courses fetched",
+        data: courses
+    });
+};
+
+const getSingleCourse = async (req: IExtendedRequest, res: Response) => {
+    const instituteNumber = req.user?.currentInstituteNumber;
+    const courseTable = buildTableName('course_', instituteNumber);
+    const { id: courseId } = req.params;
+
+    const course = await sequelize.query(
+        `SELECT * FROM \`${courseTable}\` WHERE id = ?`,
+        {
+            replacements: [courseId],
+            type: QueryTypes.SELECT
+        }
+    );
+
+    res.status(200).json({
+        message: "Course fetched",
+        data: course
+    });
+};
+
+export { createCourse, deleteCourse, getSingleCourse, getAllCourse };

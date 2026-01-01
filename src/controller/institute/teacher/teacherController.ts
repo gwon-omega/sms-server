@@ -4,70 +4,101 @@ import sequelize from "../../../database/connection";
 import { QueryTypes } from "sequelize";
 import generateRandomPassword from "../../../services/generateRandomPassword";
 import sendMail from "../../../services/sendMail";
+import { buildTableName } from "../../../services/sqlSecurityService";
 
+/**
+ * Teacher Controller (Institute-level)
+ * SECURITY: All table names are built using buildTableName() to prevent SQL injection
+ */
 
-const createTeacher = async(req:IExtendedRequest,res:Response)=>{
-    // teacher ko k k data chayenxa tyo accept garam
-    const instituteNumber = req.user?.currentInstituteNumber ;
-    const {teacherName,teacherEmail,teacherPhoneNumber,teacherExperience,teacherSalary,teacherJoinedDate,courseId} = req.body
-    const teacherPhoto = req.file ? req.file.path : "https://static.vecteezy.com/system/resources/thumbnails/001/840/618/small/picture-profile-icon-male-icon-human-or-people-sign-and-symbol-free-vector.jpg"
-    if(!teacherName || !teacherEmail || !teacherPhoneNumber || !teacherExperience || !teacherSalary || !teacherJoinedDate || !courseId){
+const createTeacher = async (req: IExtendedRequest, res: Response) => {
+    const instituteNumber = req.user?.currentInstituteNumber;
+    const teacherTable = buildTableName('teacher_', instituteNumber);
+    const courseTable = buildTableName('course_', instituteNumber);
+
+    const { firstName, lastName, teacherEmail, teacherPhoneNumber, teacherExperience, teacherSalary, teacherJoinedDate, courseId } = req.body;
+    const teacherPhoto = req.file ? req.file.path : "https://static.vecteezy.com/system/resources/thumbnails/001/840/618/small/picture-profile-icon-male-icon-human-or-people-sign-and-symbol-free-vector.jpg";
+
+    if (!firstName || !lastName || !teacherEmail || !teacherPhoneNumber || !teacherExperience || !teacherSalary || !teacherJoinedDate || !courseId) {
         return res.status(400).json({
-            message : "Please provide teacherName,teacherEmail,teacherPhoneNumber,teacherExperience,teacherSalary,teacherJoinedDate,courseId"
-        })
+            message: "Please provide firstName, lastName, teacherEmail, teacherPhoneNumber, teacherExperience, teacherSalary, teacherJoinedDate, courseId"
+        });
     }
-    // password generate functionnn
-    const data = generateRandomPassword(teacherName)
-    const insertedData =  await sequelize.query(`INSERT INTO teacher_${instituteNumber}(teacherName,teacherEmail,teacherPhoneNumber,teacherExperience,joinedDate,salary,teacherPhoto,teacherPassword, courseId) VALUES(?,?,?,?,?,?,?,?,?)`,{
-        type : QueryTypes.INSERT,
-        replacements : [teacherName,teacherEmail,teacherPhoneNumber,teacherExperience,teacherJoinedDate,teacherSalary,teacherPhoto,data.hashedVersion, courseId]
-    })
 
-    const teacherData : {id:string}[]= await sequelize.query(`SELECT id FROM teacher_${instituteNumber} WHERE teacherEmail=?`,{
-        type : QueryTypes.SELECT,
-        replacements : [teacherEmail]
-    })
+    // Generate password
+    const data = generateRandomPassword(`${firstName} ${lastName}`);
 
-    // await sequelize.query(`UPDATE course_${instituteNumber} SET teacherId=? WHERE id=?`,{
-    //     type : QueryTypes.UPDATE,
-    //     replacements : [teacherData[0].id,courseId]
-    // })
+    await sequelize.query(
+        `INSERT INTO \`${teacherTable}\` (firstName, lastName, teacherEmail, teacherPhoneNumber, teacherExperience, joinedDate, salary, teacherPhoto, teacherPassword, courseId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        {
+            type: QueryTypes.INSERT,
+            replacements: [firstName, lastName, teacherEmail, teacherPhoneNumber, teacherExperience, teacherJoinedDate, teacherSalary, teacherPhoto, data.hashedVersion, courseId]
+        }
+    );
 
-    // send mail function goes here
+    const teacherData: { id: string }[] = await sequelize.query(
+        `SELECT id FROM \`${teacherTable}\` WHERE teacherEmail = ?`,
+        {
+            type: QueryTypes.SELECT,
+            replacements: [teacherEmail]
+        }
+    );
+
+    // Send welcome email
     const mailInformation = {
-        to : teacherEmail,
-        subject : "Welcome to our saas MERN project",
-        text : `You've registered successfully.<br /> <b>Email</b> : ${teacherEmail}, Password : ${data.plainVersion}, Your Institute Number : ${instituteNumber}`
-    }
-    await sendMail(mailInformation)
+        to: teacherEmail,
+        subject: "Welcome to EduFlow",
+        text: `You've registered successfully.\n\nEmail: ${teacherEmail}\nPassword: ${data.plainVersion}\nInstitute Number: ${instituteNumber}`,
+        html: `
+            <div style="font-family: Arial, sans-serif;">
+                <h2>Welcome to EduFlow!</h2>
+                <p>You've been registered as a teacher.</p>
+                <p><strong>Email:</strong> ${teacherEmail}</p>
+                <p><strong>Password:</strong> ${data.plainVersion}</p>
+                <p><strong>Institute Number:</strong> ${instituteNumber}</p>
+                <p style="color: #666;">Please change your password after first login.</p>
+            </div>
+        `
+    };
+    await sendMail(mailInformation);
 
     res.status(200).json({
-        message : "teacher created"
-    })
+        message: "Teacher created successfully"
+    });
+};
 
-}
-
-const getTeachers = async(req:IExtendedRequest,res:Response)=>{
+const getTeachers = async (req: IExtendedRequest, res: Response) => {
     const instituteNumber = req.user?.currentInstituteNumber;
-    const teachers = await sequelize.query(`SELECT t.*,c.courseName FROM teacher_${instituteNumber} AS t JOIN course_${instituteNumber} AS c ON t.courseId = c.id`,{
-        type : QueryTypes.SELECT
-    })
-    res.status(200).json({
-        message : "teachers fetched", data:teachers
-    })
-}
+    const teacherTable = buildTableName('teacher_', instituteNumber);
+    const courseTable = buildTableName('course_', instituteNumber);
 
-const deleteTeacher = async(req:IExtendedRequest,res:Response)=>{
+    const teachers = await sequelize.query(
+        `SELECT t.*, c.courseName FROM \`${teacherTable}\` AS t JOIN \`${courseTable}\` AS c ON t.courseId = c.id`,
+        { type: QueryTypes.SELECT }
+    );
+
+    res.status(200).json({
+        message: "Teachers fetched",
+        data: teachers
+    });
+};
+
+const deleteTeacher = async (req: IExtendedRequest, res: Response) => {
     const instituteNumber = req.user?.currentInstituteNumber;
-    const id = req.params.id
-    await sequelize.query(`DELETE FROM teacher_${instituteNumber} WHERE id=?`,{
-        type : QueryTypes.DELETE,
-        replacements : [id]
-    })
+    const teacherTable = buildTableName('teacher_', instituteNumber);
+    const { id } = req.params;
+
+    await sequelize.query(
+        `DELETE FROM \`${teacherTable}\` WHERE id = ?`,
+        {
+            type: QueryTypes.DELETE,
+            replacements: [id]
+        }
+    );
+
     res.status(200).json({
-        message : "delete Teacher successfully"
-    })
-}
+        message: "Teacher deleted successfully"
+    });
+};
 
-
-export {createTeacher,getTeachers,deleteTeacher}
+export { createTeacher, getTeachers, deleteTeacher };
