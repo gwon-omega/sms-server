@@ -3,13 +3,24 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon server.ts"
+    "start": "nodemon server.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:prod": "prisma migrate deploy",
+    "prisma:push": "prisma db push",
+    "prisma:pull": "prisma db pull",
+    "prisma:studio": "prisma studio",
+    "prisma:reset": "prisma migrate reset",
+    "prisma:seed": "prisma db seed",
+    "postinstall": "prisma generate"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/client": "^7.2.0",
     "@sentry/node": "^10.32.1",
     "@sentry/tracing": "^7.120.4",
     "@types/base-64": "^1.0.2",
@@ -35,6 +46,7 @@
     "nodemailer": "^7.0.3",
     "otplib": "^12.0.1",
     "posthog-node": "^5.18.0",
+    "prisma": "^7.2.0",
     "qrcode": "^1.5.4",
     "sequelize-typescript": "^2.1.6",
     "xss": "^1.0.15",

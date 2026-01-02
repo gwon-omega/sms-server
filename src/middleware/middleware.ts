@@ -1,5 +1,8 @@
 import { NextFunction, Response } from "express";
-import { verifyAccessToken, TokenPayload } from "../services/secureTokenService";
+import {
+  verifyAccessToken,
+  TokenPayload,
+} from "../services/secureTokenService";
 import User from "../database/models/userModel";
 import { IExtendedRequest, UserRole } from "./type";
 
@@ -7,14 +10,18 @@ import { IExtendedRequest, UserRole } from "./type";
  * Middleware to check if user is logged in
  * Uses secure token service with full JWT validation
  */
-const isLoggedIn = async (req: IExtendedRequest, res: Response, next: NextFunction) => {
+const isLoggedIn = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
       res.status(401).json({
         message: "Authorization token required",
-        code: "NO_TOKEN"
+        code: "NO_TOKEN",
       });
       return;
     }
@@ -24,10 +31,10 @@ const isLoggedIn = async (req: IExtendedRequest, res: Response, next: NextFuncti
       ? authHeader.slice(7)
       : authHeader;
 
-    if (!token || token === 'null' || token === 'undefined') {
+    if (!token || token === "null" || token === "undefined") {
       res.status(401).json({
         message: "Invalid token format",
-        code: "INVALID_TOKEN_FORMAT"
+        code: "INVALID_TOKEN_FORMAT",
       });
       return;
     }
@@ -43,24 +50,24 @@ const isLoggedIn = async (req: IExtendedRequest, res: Response, next: NextFuncti
     if (!userData) {
       res.status(403).json({
         message: "User not found",
-        code: "USER_NOT_FOUND"
+        code: "USER_NOT_FOUND",
       });
       return;
     }
 
     // Check account status
-    if (userData.accountStatus === 'suspended') {
+    if (userData.accountStatus === "suspended") {
       res.status(403).json({
         message: "Account suspended",
-        code: "ACCOUNT_SUSPENDED"
+        code: "ACCOUNT_SUSPENDED",
       });
       return;
     }
 
-    if (userData.accountStatus === 'inactive') {
+    if (userData.accountStatus === "inactive") {
       res.status(403).json({
         message: "Account inactive",
-        code: "ACCOUNT_INACTIVE"
+        code: "ACCOUNT_INACTIVE",
       });
       return;
     }
@@ -73,20 +80,23 @@ const isLoggedIn = async (req: IExtendedRequest, res: Response, next: NextFuncti
     next();
   } catch (error: any) {
     // Different error messages for different failure modes
-    if (error.message.includes('expired')) {
+    if (error.message.includes("expired")) {
       res.status(401).json({
         message: "Token expired",
-        code: "TOKEN_EXPIRED"
+        code: "TOKEN_EXPIRED",
       });
-    } else if (error.message.includes('revoked') || error.message.includes('blacklisted')) {
+    } else if (
+      error.message.includes("revoked") ||
+      error.message.includes("blacklisted")
+    ) {
       res.status(401).json({
         message: "Token has been revoked",
-        code: "TOKEN_REVOKED"
+        code: "TOKEN_REVOKED",
       });
     } else {
       res.status(403).json({
         message: "Invalid token",
-        code: "INVALID_TOKEN"
+        code: "INVALID_TOKEN",
       });
     }
   }
@@ -97,14 +107,19 @@ const isLoggedIn = async (req: IExtendedRequest, res: Response, next: NextFuncti
  * Replaces hyphens with underscores for SQL compatibility
  * SECURITY: Validates ID format to prevent injection
  */
-const changeUserIdForTableName = (req: IExtendedRequest, res: Response, next: NextFunction) => {
+const changeUserIdForTableName = (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   if (req.user && req.user.id) {
     // Validate UUID format (security check)
-    const uuidRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+    const uuidRegex =
+      /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
     if (!uuidRegex.test(req.user.id)) {
       res.status(400).json({
         message: "Invalid user identifier format",
-        code: "INVALID_USER_ID"
+        code: "INVALID_USER_ID",
       });
       return;
     }
@@ -115,7 +130,7 @@ const changeUserIdForTableName = (req: IExtendedRequest, res: Response, next: Ne
   } else {
     res.status(400).json({
       message: "User information not available",
-      code: "NO_USER_INFO"
+      code: "NO_USER_INFO",
     });
   }
 };
@@ -131,7 +146,7 @@ const restrictTo = (...roles: UserRole[]) => {
     if (!userRole) {
       res.status(403).json({
         message: "Access denied",
-        code: "NO_ROLE"
+        code: "NO_ROLE",
       });
       return;
     }
@@ -141,7 +156,7 @@ const restrictTo = (...roles: UserRole[]) => {
     } else {
       res.status(403).json({
         message: "You do not have permission to access this resource",
-        code: "INSUFFICIENT_PERMISSIONS"
+        code: "INSUFFICIENT_PERMISSIONS",
       });
     }
   };
@@ -150,7 +165,11 @@ const restrictTo = (...roles: UserRole[]) => {
 /**
  * Optional auth middleware - doesn't fail if no token, just sets user if present
  */
-const optionalAuth = async (req: IExtendedRequest, res: Response, next: NextFunction) => {
+const optionalAuth = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -159,9 +178,11 @@ const optionalAuth = async (req: IExtendedRequest, res: Response, next: NextFunc
       return;
     }
 
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : authHeader;
 
-    if (!token || token === 'null' || token === 'undefined') {
+    if (!token || token === "null" || token === "undefined") {
       next();
       return;
     }
@@ -186,4 +207,13 @@ const optionalAuth = async (req: IExtendedRequest, res: Response, next: NextFunc
   }
 };
 
-export { isLoggedIn, restrictTo, changeUserIdForTableName, optionalAuth };
+// Alias for clarity in v2 routes
+const requireRole = restrictTo;
+
+export {
+  isLoggedIn,
+  restrictTo,
+  changeUserIdForTableName,
+  optionalAuth,
+  requireRole,
+};
