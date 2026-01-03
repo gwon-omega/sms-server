@@ -16,7 +16,7 @@
     "prisma:reset": "prisma migrate reset",
     "prisma:seed": "prisma db seed",
     "postinstall": "prisma generate",
-    "render:build": "npm ci && prisma generate && prisma migrate deploy && npm run build"
+    "render:build": "npm install --legacy-peer-deps && prisma generate && prisma migrate deploy && npm run build"
   },
   "keywords": [],
   "author": "",
