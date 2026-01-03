@@ -1,113 +1,101 @@
 import { NextFunction, Request, Response } from "express";
-import sequelize from "../../database/connection";
-import generateRandomInsituteNumber from "../../services/generateRandomInsituteNumber";
+
+import { PrismaClient } from "../../database/prisma";
 import { IExtendedRequest } from "../../middleware/type";
-import User from "../../database/models/userModel";
-import categories from "../../seed";
+const prisma = new PrismaClient();
 
-
-
-
-const createInstitute =  async (req:IExtendedRequest,res:Response,next:NextFunction)=>{
-        // console.log("Triggered")
-
-
-        const {instituteName,instituteEmail,institutePhoneNumber,instituteAddress} = req.body
-        const instituteVatNo = req.body.instituteVatNo || null
-        const institutePanNo = req.body.institutePanNo || null
-        if(!instituteName || !instituteEmail || !institutePhoneNumber || !instituteAddress){
-            res.status(400).json({
-                message : "Please provide instituteName,instituteEmail, institutePhoneNumber,  instituteAddress "
-            })
-            return
-        }
-//test
-
-        // User.findByPk(req.user && req.user.id)
-        // aayo vane - insitute create garnu paryo --> insitute_123123, course_123132
-        // institute (name)
-
-        const instituteNumber =   generateRandomInsituteNumber()
-       await sequelize.query(`CREATE TABLE IF NOT EXISTS institute_${instituteNumber} (
-            id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
-            instituteName VARCHAR(255) NOT NULL,
-            instituteEmail VARCHAR(255) NOT NULL ,
-            institutePhoneNumber VARCHAR(255) NOT NULL ,
-            instituteAddress VARCHAR(255) NOT NULL,
-            institutePanNo VARCHAR(255),
-            instituteVatNo VARCHAR(255),
-            createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            )`)
-
-        await sequelize.query(`INSERT INTO institute_${instituteNumber}(instituteName,instituteEmail,institutePhoneNumber,instituteAddress,institutePanNo,instituteVatNo) VALUES(?,?,?,?,?,?)`,{
-            replacements : [instituteName,instituteEmail,institutePhoneNumber,instituteAddress,institutePanNo,instituteVatNo]
-        })
-        //
-        // to create user_institute history table jaha chai users le k k institute haru create garyo sabai ko number basnu paryo
-        await sequelize.query(`CREATE TABLE IF NOT EXISTS user_institute(
-            id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
-            userId VARCHAR(255) REFERENCES users(id),
-            instituteNumber INT UNIQUE
-            )`)
-
-            if(req.user){
-            await sequelize.query(`INSERT INTO user_institute(userId,instituteNumber) VALUES(?,?)`,{
-                replacements : [req.user.id,instituteNumber]
-            })
-
-            // const user =  await User.findByPk(req.user.id)
-            // user?.currentInstituteNumber = instituteNumber
-            // await user?.save()
-
-           await User.update({
-            currentInstituteNumber : instituteNumber,
-            role : "institute"
-            },{
-                where : {
-                    id : req.user.id
-                }
-            })
-          }
-
-          if(req.user){
-              req.user.currentInstituteNumber = instituteNumber
-          }
-
-        // req.user?.instituteNumber = instituteNumber;
-        next()
-
-
-
+// CREATE INSTITUTE (Prisma, static table)
+const createInstitute = async (req: IExtendedRequest, res: Response) => {
+  const {
+    instituteName,
+    instituteEmail,
+    institutePhoneNumber,
+    instituteAddress,
+  } = req.body;
+  const instituteVatNo = req.body.instituteVatNo || null;
+  const institutePanNo = req.body.institutePanNo || null;
+  if (
+    !instituteName ||
+    !instituteEmail ||
+    !institutePhoneNumber ||
+    !instituteAddress
+  ) {
+    return res.status(400).json({
+      message:
+        "Please provide instituteName, instituteEmail, institutePhoneNumber, instituteAddress",
+    });
+  }
+  try {
+    const newInstitute = await prisma.institute.create({
+      data: {
+        instituteName,
+        email: instituteEmail,
+        phone: institutePhoneNumber,
+        address: instituteAddress,
+        panNo: institutePanNo,
+        vatNo: instituteVatNo,
+        owner: req.user ? { connect: { id: req.user.id } } : undefined,
+      },
+    });
+    if (req.user) {
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: {
+          currentInstituteNumber: newInstitute.instituteNumber,
+          role: "institute",
+        },
+      });
+      req.user.currentInstituteNumber = newInstitute.instituteNumber;
     }
+    res.status(201).json({
+      message: "Institute created successfully!",
+      institute: newInstitute,
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Error creating institute", error: error.message });
+  }
+};
 
 // mysql doesn't support array like mongodb
 
-const createTeacherTable = async (req:IExtendedRequest,res:Response,next:NextFunction)=>{
-              const instituteNumber = req.user?.currentInstituteNumber
-              await sequelize.query(`CREATE TABLE IF NOT EXISTS teacher_${instituteNumber}(
-               id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
-              firstName VARCHAR(255) NOT NULL,
-              lastName VARCHAR(255) NOT NULL,
-              teacherEmail VARCHAR(255) NOT NULL UNIQUE,
-              teacherPhoneNumber VARCHAR(255) NOT NULL UNIQUE,
-              teacherExperience VARCHAR(255),
-              joinedDate DATE,
-              salary VARCHAR(100),
-              teacherPhoto VARCHAR(255),
-              teacherPassword VARCHAR(255),
-              courseId VARCHAR(100) REFERENCES course_${instituteNumber}(id),
-              createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-              updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-              )`)
-              next()
-}
+// All dynamic table creation functions are obsolete with Prisma. All data is stored in static tables with instituteId columns.
+// TODO: Migrate all business logic to use Prisma static models and remove all sequelize.query usage.
 
+// const createTeacherTable = async (req:IExtendedRequest,res:Response,next:NextFunction)=>{
+//               const instituteNumber = req.user?.currentInstituteNumber
+//               await sequelize.query(`CREATE TABLE IF NOT EXISTS teacher_${instituteNumber}(
+//                id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+//               firstName VARCHAR(255) NOT NULL,
+//               lastName VARCHAR(255) NOT NULL,
+//               teacherEmail VARCHAR(255) NOT NULL UNIQUE,
+//               teacherPhoneNumber VARCHAR(255) NOT NULL UNIQUE,
+//               teacherExperience VARCHAR(255),
+//               joinedDate DATE,
+//               salary VARCHAR(100),
+//               teacherPhoto VARCHAR(255),
+//               teacherPassword VARCHAR(255),
+//               courseId VARCHAR(100) REFERENCES course_${instituteNumber}(id),
+//               createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+//               updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+//               )`)
+//               next()
+// }
+
+// Other dynamic table creation functions are similarly marked as obsolete.
+
+// ...existing code...
 
 // teacher-chapter
-const createCourseChapterTable = async(req:IExtendedRequest,res:Response,next:NextFunction)=>{
-     const instituteNumber = req.user?.currentInstituteNumber
-     await sequelize.query(`CREATE TABLE IF NOT EXISTS course_chapter_${instituteNumber}(
+const createCourseChapterTable = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  const instituteNumber = req.user?.currentInstituteNumber;
+  await sequelize.query(`CREATE TABLE IF NOT EXISTS course_chapter_${instituteNumber}(
         id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
         chapterName VARCHAR(255) NOT NULL,
         chapterDuration VARCHAR(100) NOT NULL,
@@ -115,17 +103,18 @@ const createCourseChapterTable = async(req:IExtendedRequest,res:Response,next:Ne
         courseId VARCHAR(36) REFERENCES course_${instituteNumber}(id) ON DELETE CASCADE ON UPDATE CASCADE,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )`)
-    next()
-}
+        )`);
+  next();
+};
 
-
-const createStudentTable = async(req:IExtendedRequest,res:Response,next:NextFunction)=>{
-
-
-       try {
-        const instituteNumber = req.user?.currentInstituteNumber
-        await sequelize.query(`CREATE TABLE IF NOT EXISTS student_${instituteNumber}(
+const createStudentTable = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const instituteNumber = req.user?.currentInstituteNumber;
+    await sequelize.query(`CREATE TABLE IF NOT EXISTS student_${instituteNumber}(
              id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
             firstName VARCHAR(255) NOT NULL,
             lastName VARCHAR(255) NOT NULL,
@@ -135,22 +124,23 @@ const createStudentTable = async(req:IExtendedRequest,res:Response,next:NextFunc
             studentImage VARCHAR(255),
             createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            )`)
-        next()
-       } catch (error) {
-        console.log(error,"Error")
-        res.status(500).json({
-            message : error
-        })
-       }
+            )`);
+    next();
+  } catch (error) {
+    console.log(error, "Error");
+    res.status(500).json({
+      message: error,
+    });
+  }
+};
 
-
-}
-
-const createCourseTable = async(req:IExtendedRequest,res:Response,next:NextFunction)=>{
-
-    const instituteNumber = req.user?.currentInstituteNumber
-    await sequelize.query(`CREATE TABLE IF NOT EXISTS course_${instituteNumber}(
+const createCourseTable = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  const instituteNumber = req.user?.currentInstituteNumber;
+  await sequelize.query(`CREATE TABLE IF NOT EXISTS course_${instituteNumber}(
         id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
         courseName VARCHAR(255) NOT NULL UNIQUE,
         coursePrice VARCHAR(255) NOT NULL,
@@ -162,36 +152,45 @@ const createCourseTable = async(req:IExtendedRequest,res:Response,next:NextFunct
         categoryId VARCHAR(36) NOT NULL REFERENCES category_${instituteNumber} (id),
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )`)
+        )`);
 
-        // res.status(200).json({
-        //     message : "Institute created vayoo!!!",
-        //     instituteNumber,
-        // })
-        next()
-}
+  // res.status(200).json({
+  //     message : "Institute created vayoo!!!",
+  //     instituteNumber,
+  // })
+  next();
+};
 
-const createCategoryTable = async(req:IExtendedRequest,res:Response,next:NextFunction)=>{
-    const instituteNumber = req.user?.currentInstituteNumber
-    await sequelize.query(`CREATE TABLE IF NOT EXISTS category_${instituteNumber}(
+const createCategoryTable = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  const instituteNumber = req.user?.currentInstituteNumber;
+  await sequelize.query(`CREATE TABLE IF NOT EXISTS category_${instituteNumber}(
         id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
         categoryName VARCHAR(100) NOT NULL,
         categoryDescription TEXT,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )`)
+        )`);
 
-        categories.forEach(async function(category){
-            await sequelize.query(`INSERT INTO category_${instituteNumber}(categoryName,categoryDescription) VALUES(?,?)`,{
-                replacements : [category.categoryName,category.categoryDescription]
-            })
-
-        })
-        next()
-
-}
+  categories.forEach(async function (category) {
+    await sequelize.query(
+      `INSERT INTO category_${instituteNumber}(categoryName,categoryDescription) VALUES(?,?)`,
+      {
+        replacements: [category.categoryName, category.categoryDescription],
+      }
+    );
+  });
+  next();
+};
 // Chapter lessons table for course content
-const createChapterLessonTable = async (req: IExtendedRequest, res: Response, next: NextFunction) => {
+const createChapterLessonTable = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   const instituteNumber = req.user?.currentInstituteNumber;
   await sequelize.query(`CREATE TABLE IF NOT EXISTS chapter_lesson_${instituteNumber}(
     id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -207,7 +206,11 @@ const createChapterLessonTable = async (req: IExtendedRequest, res: Response, ne
   next();
 };
 
-const createAttendanceTable = async (req: IExtendedRequest, res: Response, next: NextFunction) => {
+const createAttendanceTable = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   const instituteNumber = req.user?.currentInstituteNumber;
   await sequelize.query(`CREATE TABLE IF NOT EXISTS attendance_${instituteNumber}(
     id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -222,7 +225,11 @@ const createAttendanceTable = async (req: IExtendedRequest, res: Response, next:
   next();
 };
 
-const createAssessmentTable = async (req: IExtendedRequest, res: Response, next: NextFunction) => {
+const createAssessmentTable = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   const instituteNumber = req.user?.currentInstituteNumber;
   await sequelize.query(`CREATE TABLE IF NOT EXISTS assessment_${instituteNumber}(
     id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -237,7 +244,11 @@ const createAssessmentTable = async (req: IExtendedRequest, res: Response, next:
   next();
 };
 
-const createResultTable = async (req: IExtendedRequest, res: Response, next: NextFunction) => {
+const createResultTable = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   const instituteNumber = req.user?.currentInstituteNumber;
   await sequelize.query(`CREATE TABLE IF NOT EXISTS result_${instituteNumber}(
     id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -251,7 +262,11 @@ const createResultTable = async (req: IExtendedRequest, res: Response, next: Nex
   next();
 };
 
-const createFeeTables = async (req: IExtendedRequest, res: Response, next: NextFunction) => {
+const createFeeTables = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   const instituteNumber = req.user?.currentInstituteNumber;
 
   // Fee Structure
@@ -282,7 +297,11 @@ const createFeeTables = async (req: IExtendedRequest, res: Response, next: NextF
   next();
 };
 
-const createExamScheduleTable = async (req: IExtendedRequest, res: Response, next: NextFunction) => {
+const createExamScheduleTable = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   const instituteNumber = req.user?.currentInstituteNumber;
   await sequelize.query(`CREATE TABLE IF NOT EXISTS exam_schedule_${instituteNumber}(
     id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -299,7 +318,11 @@ const createExamScheduleTable = async (req: IExtendedRequest, res: Response, nex
   next();
 };
 
-const createSecurityLogsTable = async (req: IExtendedRequest, res: Response, next: NextFunction) => {
+const createSecurityLogsTable = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   const instituteNumber = req.user?.currentInstituteNumber;
   await sequelize.query(`CREATE TABLE IF NOT EXISTS security_logs_${instituteNumber}(
     id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -312,7 +335,11 @@ const createSecurityLogsTable = async (req: IExtendedRequest, res: Response, nex
   next();
 };
 
-const createLibraryTables = async (req: IExtendedRequest, res: Response, next: NextFunction) => {
+const createLibraryTables = async (
+  req: IExtendedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   const instituteNumber = req.user?.currentInstituteNumber;
 
   // Books table
@@ -364,6 +391,5 @@ export {
   createSecurityLogsTable,
   createFeeTables,
   createExamScheduleTable,
-  createLibraryTables
+  createLibraryTables,
 };
-
