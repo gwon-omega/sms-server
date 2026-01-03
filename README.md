@@ -6,7 +6,7 @@ Modern Node.js/Express backend for multi-tenant institute management with Prisma
 
 - 🔐 User authentication (JWT + OAuth2.0 - Google, Microsoft)
 - 🏫 Multi-tenant institute management (Row Level Security)
-- 📚 Course, category, teacher, and student CRUD
+- 📚 Course, category, teacher, student, and library/book CRUD
 - ☁️ Cloud file uploads (Cloudinary)
 - 🔒 Role-based access control (5 roles: super-admin, institute, teacher, student, admin)
 - 📊 Analytics and reporting
@@ -30,7 +30,7 @@ Modern Node.js/Express backend for multi-tenant institute management with Prisma
 - **Database**: Prisma ORM with Supabase PostgreSQL
   - Connection pooling via Supavisor (port 6543)
   - Row Level Security (RLS) for multi-tenancy
-  - ~~Legacy MySQL/Sequelize support~~ **DISABLED**
+- ~~Legacy MySQL/Sequelize support~~ **REMOVED** (All modules now use Prisma ORM)
 
 ## Getting Started
 
@@ -88,6 +88,18 @@ CLOUDINARY_API_SECRET=your_api_secret
 - `GET /api/institute/courses` — List courses (protected)
 - `GET /api/institute/category` — List categories (protected)
 
+
+### Library / Book
+
+- `POST /api/institute/library/book` — Create a new book
+- `GET /api/institute/library/books` — List all books (with filters)
+- `GET /api/institute/library/book/:id` — Get book by ID
+- `PUT /api/institute/library/book/:id` — Update a book
+- `DELETE /api/institute/library/book/:id` — Delete a book
+- `POST /api/institute/library/borrow` — Borrow a book
+- `POST /api/institute/library/return` — Return a book
+- `GET /api/institute/library/borrow-history/:studentId` — Get student borrow history
+
 ### Course
 
 - `POST /api/institute/courses` — Create a course (protected, supports file upload)
@@ -113,11 +125,13 @@ CLOUDINARY_API_SECRET=your_api_secret
 - Local uploads: stored in `/src/uploads/`
 - Cloudinary uploads: configure Cloudinary credentials in `.env`
 
+
 ## Development
 
 - Uses `nodemon` for auto-reload
 - TypeScript for type safety
-- Sequelize migrations with `alter: true` for auto-sync
+- **Prisma ORM** for all database access (no Sequelize/legacy SQL)
+- Multi-tenancy via static tables and `instituteId` column (no dynamic tables)
 
 ## License
 

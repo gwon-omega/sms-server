@@ -1,311 +1,327 @@
 import { Response } from "express";
-import sequelize from "../../../database/connection";
+import { PrismaClient } from "@prisma/client";
 import { IExtendedRequest } from "../../../middleware/type";
-import { QueryTypes } from "sequelize";
-import { buildTableName } from "../../../services/sqlSecurityService";
+
+const prisma = new PrismaClient();
 
 /**
  * Library Controller
  * SECURITY: All table names built using buildTableName() for SQL injection prevention
  */
 
-// Create a new book
+// Create a new book (Prisma)
 const createBook = async (req: IExtendedRequest, res: Response) => {
-    const instituteNumber = req.user?.currentInstituteNumber;
-    const libraryTable = buildTableName('library_', instituteNumber);
-    const { title, author, isbn, category, description, totalCopies, publishedYear, coverImage } = req.body;
+  const instituteId = req.user?.currentInstituteId;
+  const uploadedBy = req.user?.id;
+  const {
+    title,
+    author,
+    isbn,
+    categoryId,
+    description,
+    totalCopies,
+    publishedAt,
+    coverImage,
+  } = req.body;
 
-    if (!title || !author || !isbn) {
-        return res.status(400).json({ message: "Title, Author, and ISBN are required" });
-    }
+  if (!title || !author || !isbn || !categoryId) {
+    return res
+      .status(400)
+      .json({ message: "Title, Author, ISBN, and categoryId are required" });
+  }
 
-    try {
-        await sequelize.query(
-            `INSERT INTO \`${libraryTable}\`
-            (title, author, isbn, category, description, totalCopies, availableCopies, publishedYear, coverImage, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            {
-                replacements: [
-                    title, author, isbn,
-                    category || 'General',
-                    description || null,
-                    totalCopies || 1,
-                    totalCopies || 1,
-                    publishedYear || new Date().getFullYear(),
-                    coverImage || null,
-                    'available'
-                ],
-                type: QueryTypes.INSERT
-            }
-        );
-
-        res.status(201).json({ message: "Book added successfully" });
-    } catch (err: any) {
-        console.error("Error adding book:", err);
-        res.status(500).json({ message: "Error adding book", error: err.message });
-    }
+  try {
+    await prisma.libraryResource.create({
+      data: {
+        instituteId,
+        categoryId,
+        title,
+        author,
+        isbn,
+        description,
+        type: "book",
+        totalCopies: totalCopies || 1,
+        availableCopies: totalCopies || 1,
+        publishedAt: publishedAt ? new Date(publishedAt) : undefined,
+        thumbnailUrl: coverImage || null,
+        uploadedBy,
+        status: "available",
+      },
+    });
+    res.status(201).json({ message: "Book added successfully" });
+  } catch (err: any) {
+    res.status(500).json({ message: "Error adding book", error: err.message });
+  }
 };
 
-// Get all books with optional filtering
+// Get all books with optional filtering (Prisma)
 const getBooks = async (req: IExtendedRequest, res: Response) => {
-    const instituteNumber = req.user?.currentInstituteNumber;
-    const libraryTable = buildTableName('library_', instituteNumber);
-    const { search, category, status } = req.query;
+  const instituteId = req.user?.currentInstituteId;
+  const { search, categoryId, status } = req.query;
 
-    try {
-        let query = `SELECT * FROM \`${libraryTable}\` WHERE 1=1`;
-        const replacements: any[] = [];
-
-        if (search) {
-            query += ` AND (title LIKE ? OR author LIKE ? OR isbn LIKE ?)`;
-            replacements.push(`%${search}%`, `%${search}%`, `%${search}%`);
-        }
-
-        if (category && category !== 'All Categories') {
-            query += ` AND category = ?`;
-            replacements.push(category);
-        }
-
-        if (status) {
-            query += ` AND status = ?`;
-            replacements.push(status);
-        }
-
-        query += ` ORDER BY createdAt DESC`;
-
-        const books = await sequelize.query(query, {
-            replacements,
-            type: QueryTypes.SELECT
-        });
-
-        res.status(200).json({ message: "Books fetched", data: books });
-    } catch (err: any) {
-        res.status(500).json({ message: "Error fetching books", error: err.message });
+  try {
+    const where: any = {
+      instituteId,
+      type: "book",
+    };
+    if (search) {
+      where.OR = [
+        { title: { contains: search as string, mode: "insensitive" } },
+        { author: { contains: search as string, mode: "insensitive" } },
+        { isbn: { contains: search as string, mode: "insensitive" } },
+      ];
     }
+    if (categoryId && categoryId !== "All Categories") {
+      where.categoryId = categoryId as string;
+    }
+    if (status) {
+      where.status = status as string;
+    }
+    const books = await prisma.libraryResource.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+    res.status(200).json({ message: "Books fetched", data: books });
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ message: "Error fetching books", error: err.message });
+  }
 };
 
-// Get single book by ID
+// Get single book by ID (Prisma)
 const getBookById = async (req: IExtendedRequest, res: Response) => {
-    const instituteNumber = req.user?.currentInstituteNumber;
-    const libraryTable = buildTableName('library_', instituteNumber);
-    const { id } = req.params;
-
-    try {
-        const books: any = await sequelize.query(
-            `SELECT * FROM \`${libraryTable}\` WHERE id = ?`,
-            { replacements: [id], type: QueryTypes.SELECT }
-        );
-
-        if (books.length === 0) {
-            return res.status(404).json({ message: "Book not found" });
-        }
-
-        res.status(200).json({ message: "Book fetched", data: books[0] });
-    } catch (err: any) {
-        res.status(500).json({ message: "Error fetching book", error: err.message });
+  const instituteId = req.user?.currentInstituteId;
+  const { id } = req.params;
+  try {
+    const book = await prisma.libraryResource.findFirst({
+      where: {
+        id,
+        instituteId,
+        type: "book",
+      },
+    });
+    if (!book) {
+      return res.status(404).json({ message: "Book not found" });
     }
+    res.status(200).json({ message: "Book fetched", data: book });
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ message: "Error fetching book", error: err.message });
+  }
 };
 
-// Update a book
+// Update a book (Prisma)
 const updateBook = async (req: IExtendedRequest, res: Response) => {
-    const instituteNumber = req.user?.currentInstituteNumber;
-    const libraryTable = buildTableName('library_', instituteNumber);
-    const { id } = req.params;
-    const { title, author, isbn, category, description, totalCopies, publishedYear, coverImage } = req.body;
-
-    try {
-        const currentBook: any = await sequelize.query(
-            `SELECT * FROM \`${libraryTable}\` WHERE id = ?`,
-            { replacements: [id], type: QueryTypes.SELECT }
-        );
-
-        if (currentBook.length === 0) {
-            return res.status(404).json({ message: "Book not found" });
-        }
-
-        const borrowed = currentBook[0].totalCopies - currentBook[0].availableCopies;
-        const newAvailable = Math.max(0, (totalCopies || currentBook[0].totalCopies) - borrowed);
-        const newStatus = newAvailable === 0 ? 'out-of-stock' : newAvailable <= 3 ? 'low-stock' : 'available';
-
-        await sequelize.query(
-            `UPDATE \`${libraryTable}\` SET
-            title = ?, author = ?, isbn = ?, category = ?, description = ?,
-            totalCopies = ?, availableCopies = ?, publishedYear = ?, coverImage = ?, status = ?
-            WHERE id = ?`,
-            {
-                replacements: [
-                    title || currentBook[0].title,
-                    author || currentBook[0].author,
-                    isbn || currentBook[0].isbn,
-                    category || currentBook[0].category,
-                    description !== undefined ? description : currentBook[0].description,
-                    totalCopies || currentBook[0].totalCopies,
-                    newAvailable,
-                    publishedYear || currentBook[0].publishedYear,
-                    coverImage !== undefined ? coverImage : currentBook[0].coverImage,
-                    newStatus,
-                    id
-                ],
-                type: QueryTypes.UPDATE
-            }
-        );
-
-        res.status(200).json({ message: "Book updated successfully" });
-    } catch (err: any) {
-        res.status(500).json({ message: "Error updating book", error: err.message });
+  const instituteId = req.user?.currentInstituteId;
+  const { id } = req.params;
+  const {
+    title,
+    author,
+    isbn,
+    categoryId,
+    description,
+    totalCopies,
+    publishedAt,
+    coverImage,
+  } = req.body;
+  try {
+    const currentBook = await prisma.libraryResource.findFirst({
+      where: { id, instituteId, type: "book" },
+    });
+    if (!currentBook) {
+      return res.status(404).json({ message: "Book not found" });
     }
+    const borrowed = currentBook.totalCopies - currentBook.availableCopies;
+    const newTotal = totalCopies || currentBook.totalCopies;
+    const newAvailable = Math.max(0, newTotal - borrowed);
+    let newStatus = "available";
+    if (newAvailable === 0) newStatus = "out-of-stock";
+    else if (newAvailable <= 3) newStatus = "low-stock";
+    await prisma.libraryResource.update({
+      where: { id },
+      data: {
+        title: title ?? currentBook.title,
+        author: author ?? currentBook.author,
+        isbn: isbn ?? currentBook.isbn,
+        categoryId: categoryId ?? currentBook.categoryId,
+        description:
+          description !== undefined ? description : currentBook.description,
+        totalCopies: newTotal,
+        availableCopies: newAvailable,
+        publishedAt: publishedAt
+          ? new Date(publishedAt)
+          : currentBook.publishedAt,
+        thumbnailUrl:
+          coverImage !== undefined ? coverImage : currentBook.thumbnailUrl,
+        status: newStatus,
+      },
+    });
+    res.status(200).json({ message: "Book updated successfully" });
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ message: "Error updating book", error: err.message });
+  }
 };
 
-// Delete a book
+// Delete a book (Prisma)
 const deleteBook = async (req: IExtendedRequest, res: Response) => {
-    const instituteNumber = req.user?.currentInstituteNumber;
-    const libraryTable = buildTableName('library_', instituteNumber);
-    const { id } = req.params;
-
-    try {
-        await sequelize.query(
-            `DELETE FROM \`${libraryTable}\` WHERE id = ?`,
-            { replacements: [id], type: QueryTypes.DELETE }
-        );
-
-        res.status(200).json({ message: "Book deleted successfully" });
-    } catch (err: any) {
-        res.status(500).json({ message: "Error deleting book", error: err.message });
+  const instituteId = req.user?.currentInstituteId;
+  const { id } = req.params;
+  try {
+    const book = await prisma.libraryResource.findFirst({
+      where: { id, instituteId, type: "book" },
+    });
+    if (!book) {
+      return res.status(404).json({ message: "Book not found" });
     }
+    await prisma.libraryResource.delete({ where: { id } });
+    res.status(200).json({ message: "Book deleted successfully" });
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ message: "Error deleting book", error: err.message });
+  }
 };
 
-// Borrow a book
+// Borrow a book (Prisma)
 const borrowBook = async (req: IExtendedRequest, res: Response) => {
-    const instituteNumber = req.user?.currentInstituteNumber;
-    const libraryTable = buildTableName('library_', instituteNumber);
-    const borrowTable = buildTableName('library_borrow_', instituteNumber);
-    const { bookId, studentId, dueDate } = req.body;
+  const instituteId = req.user?.currentInstituteId;
+  const { bookId, studentId, dueDate } = req.body;
 
-    if (!bookId || !studentId) {
-        return res.status(400).json({ message: "Book ID and Student ID are required" });
+  if (!bookId || !studentId) {
+    return res
+      .status(400)
+      .json({ message: "Book ID and Student ID are required" });
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const book = await tx.libraryResource.findFirst({
+        where: { id: bookId, instituteId, type: "book" },
+      });
+      if (!book) {
+        throw { status: 404, message: "Book not found" };
+      }
+      if (book.availableCopies <= 0) {
+        throw { status: 400, message: "No copies available for borrowing" };
+      }
+      await tx.libraryBorrow.create({
+        data: {
+          resourceId: bookId,
+          studentId,
+          dueDate: dueDate ? new Date(dueDate) : undefined,
+          status: "borrowed",
+        },
+      });
+      const newAvailable = book.availableCopies - 1;
+      let newStatus = "available";
+      if (newAvailable === 0) newStatus = "out-of-stock";
+      else if (newAvailable <= 3) newStatus = "low-stock";
+      await tx.libraryResource.update({
+        where: { id: bookId },
+        data: { availableCopies: newAvailable, status: newStatus },
+      });
+      return true;
+    });
+    res.status(200).json({ message: "Book borrowed successfully" });
+  } catch (err: any) {
+    if (err.status) {
+      return res.status(err.status).json({ message: err.message });
     }
-
-    const t = await sequelize.transaction();
-
-    try {
-        const book: any = await sequelize.query(
-            `SELECT * FROM \`${libraryTable}\` WHERE id = ?`,
-            { replacements: [bookId], type: QueryTypes.SELECT, transaction: t }
-        );
-
-        if (book.length === 0) {
-            await t.rollback();
-            return res.status(404).json({ message: "Book not found" });
-        }
-
-        if (book[0].availableCopies <= 0) {
-            await t.rollback();
-            return res.status(400).json({ message: "No copies available for borrowing" });
-        }
-
-        await sequelize.query(
-            `INSERT INTO \`${borrowTable}\` (bookId, studentId, borrowDate, dueDate, status)
-            VALUES (?, ?, NOW(), ?, 'borrowed')`,
-            { replacements: [bookId, studentId, dueDate || null], type: QueryTypes.INSERT, transaction: t }
-        );
-
-        const newAvailable = book[0].availableCopies - 1;
-        const newStatus = newAvailable === 0 ? 'out-of-stock' : newAvailable <= 3 ? 'low-stock' : 'available';
-
-        await sequelize.query(
-            `UPDATE \`${libraryTable}\` SET availableCopies = ?, status = ? WHERE id = ?`,
-            { replacements: [newAvailable, newStatus, bookId], type: QueryTypes.UPDATE, transaction: t }
-        );
-
-        await t.commit();
-        res.status(200).json({ message: "Book borrowed successfully" });
-    } catch (err: any) {
-        await t.rollback();
-        res.status(500).json({ message: "Error borrowing book", error: err.message });
-    }
+    res
+      .status(500)
+      .json({ message: "Error borrowing book", error: err.message });
+  }
 };
 
-// Return a book
+// Return a book (Prisma)
 const returnBook = async (req: IExtendedRequest, res: Response) => {
-    const instituteNumber = req.user?.currentInstituteNumber;
-    const libraryTable = buildTableName('library_', instituteNumber);
-    const borrowTable = buildTableName('library_borrow_', instituteNumber);
-    const { borrowId } = req.body;
+  const instituteId = req.user?.currentInstituteId;
+  const { borrowId } = req.body;
 
-    if (!borrowId) {
-        return res.status(400).json({ message: "Borrow ID is required" });
+  if (!borrowId) {
+    return res.status(400).json({ message: "Borrow ID is required" });
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const borrowRecord = await tx.libraryBorrow.findFirst({
+        where: { id: borrowId, status: "borrowed" },
+      });
+      if (!borrowRecord) {
+        throw {
+          status: 404,
+          message: "Borrow record not found or already returned",
+        };
+      }
+      const book = await tx.libraryResource.findFirst({
+        where: { id: borrowRecord.resourceId, instituteId, type: "book" },
+      });
+      if (!book) {
+        throw { status: 404, message: "Book not found" };
+      }
+      await tx.libraryBorrow.update({
+        where: { id: borrowId },
+        data: { status: "returned", returnedAt: new Date() },
+      });
+      const newAvailable = book.availableCopies + 1;
+      let newStatus = "available";
+      if (newAvailable === 0) newStatus = "out-of-stock";
+      else if (newAvailable <= 3) newStatus = "low-stock";
+      await tx.libraryResource.update({
+        where: { id: book.id },
+        data: { availableCopies: newAvailable, status: newStatus },
+      });
+    });
+    res.status(200).json({ message: "Book returned successfully" });
+  } catch (err: any) {
+    if (err.status) {
+      return res.status(err.status).json({ message: err.message });
     }
-
-    const t = await sequelize.transaction();
-
-    try {
-        const borrowRecord: any = await sequelize.query(
-            `SELECT * FROM \`${borrowTable}\` WHERE id = ? AND status = 'borrowed'`,
-            { replacements: [borrowId], type: QueryTypes.SELECT, transaction: t }
-        );
-
-        if (borrowRecord.length === 0) {
-            await t.rollback();
-            return res.status(404).json({ message: "Borrow record not found or already returned" });
-        }
-
-        const bookId = borrowRecord[0].bookId;
-
-        await sequelize.query(
-            `UPDATE \`${borrowTable}\` SET status = 'returned', returnDate = NOW() WHERE id = ?`,
-            { replacements: [borrowId], type: QueryTypes.UPDATE, transaction: t }
-        );
-
-        await sequelize.query(
-            `UPDATE \`${libraryTable}\` SET
-            availableCopies = availableCopies + 1,
-            status = CASE
-                WHEN availableCopies + 1 > 3 THEN 'available'
-                WHEN availableCopies + 1 > 0 THEN 'low-stock'
-                ELSE 'out-of-stock'
-            END
-            WHERE id = ?`,
-            { replacements: [bookId], type: QueryTypes.UPDATE, transaction: t }
-        );
-
-        await t.commit();
-        res.status(200).json({ message: "Book returned successfully" });
-    } catch (err: any) {
-        await t.rollback();
-        res.status(500).json({ message: "Error returning book", error: err.message });
-    }
+    res
+      .status(500)
+      .json({ message: "Error returning book", error: err.message });
+  }
 };
 
-// Get borrowing history for a student
-const getStudentBorrowHistory = async (req: IExtendedRequest, res: Response) => {
-    const instituteNumber = req.user?.currentInstituteNumber;
-    const libraryTable = buildTableName('library_', instituteNumber);
-    const borrowTable = buildTableName('library_borrow_', instituteNumber);
-    const { studentId } = req.params;
-
-    try {
-        const history = await sequelize.query(
-            `SELECT b.*, l.title, l.author, l.isbn
-             FROM \`${borrowTable}\` b
-             JOIN \`${libraryTable}\` l ON b.bookId = l.id
-             WHERE b.studentId = ?
-             ORDER BY b.borrowDate DESC`,
-            { replacements: [studentId], type: QueryTypes.SELECT }
-        );
-
-        res.status(200).json({ message: "Borrow history fetched", data: history });
-    } catch (err: any) {
-        res.status(500).json({ message: "Error fetching borrow history", error: err.message });
-    }
+// Get borrowing history for a student (Prisma)
+const getStudentBorrowHistory = async (
+  req: IExtendedRequest,
+  res: Response
+) => {
+  const instituteId = req.user?.currentInstituteId;
+  const { studentId } = req.params;
+  try {
+    const history = await prisma.libraryBorrow.findMany({
+      where: {
+        studentId,
+        resource: { instituteId, type: "book" },
+      },
+      include: {
+        resource: {
+          select: { title: true, author: true, isbn: true },
+        },
+      },
+      orderBy: { borrowedAt: "desc" },
+    });
+    res.status(200).json({ message: "Borrow history fetched", data: history });
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ message: "Error fetching borrow history", error: err.message });
+  }
 };
 
 export {
-    createBook,
-    getBooks,
-    getBookById,
-    updateBook,
-    deleteBook,
-    borrowBook,
-    returnBook,
-    getStudentBorrowHistory
+  createBook,
+  getBooks,
+  getBookById,
+  updateBook,
+  deleteBook,
+  borrowBook,
+  returnBook,
+  getStudentBorrowHistory,
 };
