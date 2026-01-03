@@ -1,6 +1,5 @@
 import { Response } from "express";
-import { PrismaClient } from "../../../database/prisma";
-const prisma = new PrismaClient();
+import prisma from "../../../database/prisma";
 import { IExtendedRequest } from "../../../middleware/type";
 import { buildTableName } from "../../../services/sqlSecurityService";
 
@@ -40,12 +39,10 @@ const createStudent = async (req: IExtendedRequest, res: Response) => {
     !studentAddress ||
     !enrolledDate
   ) {
-    return res
-      .status(400)
-      .json({
-        message:
-          "Enter firstName, lastName, studentPhoneNo, studentAddress, enrolledDate, studentImage",
-      });
+    return res.status(400).json({
+      message:
+        "Enter firstName, lastName, studentPhoneNo, studentAddress, enrolledDate, studentImage",
+    });
   }
   try {
     const student = await prisma.student.create({

@@ -1,8 +1,6 @@
 import { Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../../../database/prisma";
 import { IExtendedRequest } from "../../../middleware/type";
-
-const prisma = new PrismaClient();
 
 /**
  * Library Controller
