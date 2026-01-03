@@ -1,7 +1,10 @@
 import { v2 as cloudinary } from "cloudinary";
 import { Request } from "express";
 import { Readable } from "stream";
-import { StorageEngine } from "multer";
+import multer, { StorageEngine } from "multer";
+
+// Define multer file type
+type MulterFile = Express.Multer.File;
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -13,8 +16,8 @@ cloudinary.config({
 class CloudinaryStorage implements StorageEngine {
   _handleFile(
     req: Request,
-    file: Express.Multer.File,
-    cb: (error: any, info?: Partial<Express.Multer.File>) => void
+    file: MulterFile,
+    cb: (error: any, info?: Partial<MulterFile>) => void
   ): void {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -42,7 +45,7 @@ class CloudinaryStorage implements StorageEngine {
 
   _removeFile(
     req: Request,
-    file: Express.Multer.File & { filename?: string },
+    file: MulterFile & { filename?: string },
     cb: (error: Error | null) => void
   ): void {
     if (file.filename) {
