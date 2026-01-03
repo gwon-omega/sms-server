@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import { Request } from "express";
 import { Readable } from "stream";
+import { StorageEngine } from "multer";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -9,18 +10,18 @@ cloudinary.config({
 });
 
 // Custom Cloudinary storage engine compatible with cloudinary v2
-const storage = {
+class CloudinaryStorage implements StorageEngine {
   _handleFile(
     req: Request,
     file: Express.Multer.File,
-    cb: (error: Error | null, info?: Partial<Express.Multer.File>) => void
-  ) {
+    cb: (error: any, info?: Partial<Express.Multer.File>) => void
+  ): void {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: "fullstack-saas",
         resource_type: "auto",
       },
-      (error, result) => {
+      (error: any, result: any) => {
         if (error) return cb(error);
         cb(null, {
           filename: result?.public_id || "",
@@ -31,27 +32,29 @@ const storage = {
     );
 
     // Convert buffer to stream and pipe to Cloudinary
-    if (file.stream) {
-      file.stream.pipe(uploadStream);
+    if ((file as any).stream) {
+      (file as any).stream.pipe(uploadStream);
     } else if (file.buffer) {
       const bufferStream = Readable.from(file.buffer);
       bufferStream.pipe(uploadStream);
     }
-  },
+  }
 
   _removeFile(
     req: Request,
     file: Express.Multer.File & { filename?: string },
     cb: (error: Error | null) => void
-  ) {
+  ): void {
     if (file.filename) {
-      cloudinary.uploader.destroy(file.filename, (error) => {
+      cloudinary.uploader.destroy(file.filename, (error: any) => {
         cb(error || null);
       });
     } else {
       cb(null);
     }
-  },
-};
+  }
+}
+
+const storage = new CloudinaryStorage();
 
 export { cloudinary, storage };

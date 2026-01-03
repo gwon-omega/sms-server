@@ -14,4 +14,6 @@ export interface IExtendedRequest extends Request {
     currentInstituteId?: string | null;
     role: UserRole;
   };
+  file?: any; // Multer file upload
+  files?: any; // Multer multiple files
 }
