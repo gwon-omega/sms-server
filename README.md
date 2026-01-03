@@ -1,33 +1,43 @@
-# Fullstack Institute Management API
+# EduFlow - Institute Management API
 
-This project is a Node.js/Express backend for a multi-institute management system. It supports user authentication, dynamic institute creation, course, category, teacher, and student management, and file uploads (local and Cloudinary).
+Modern Node.js/Express backend for multi-tenant institute management with Prisma + Supabase PostgreSQL.
 
 ## Features
 
-- User registration and login (JWT-based)
-- Institute creation (dynamic tables per institute)
-- Course, category, teacher, and student CRUD
-- File uploads (local disk and Cloudinary)
-- Role-based access (admin, institute, super-admin, student, teacher)
-- Sequelize ORM with MySQL
-- Modular route/controller structure
+- 🔐 User authentication (JWT + OAuth2.0 - Google, Microsoft)
+- 🏫 Multi-tenant institute management (Row Level Security)
+- 📚 Course, category, teacher, and student CRUD
+- ☁️ Cloud file uploads (Cloudinary)
+- 🔒 Role-based access control (5 roles: super-admin, institute, teacher, student, admin)
+- 📊 Analytics and reporting
+- 📧 Email notifications (Nodemailer)
+- 🔐 MFA/2FA support
+- 🛡️ Advanced security (rate limiting, SQL injection prevention, XSS protection)
 
 ## Tech Stack
 
-- Node.js, Express.js
-- TypeScript
-- MySQL (with Sequelize ORM)
-- Cloudinary (for file uploads)
-- Multer (for file handling)
-- JWT (authentication)
-- dotenv (environment variables)
+- **Runtime**: Node.js 22.x, Express 5.x
+- **Language**: TypeScript 5.8
+- **Database**: Prisma 7 + Supabase PostgreSQL (with RLS)
+- **Authentication**: Jose (JWT), Passport.js (OAuth)
+- **File Storage**: Cloudinary
+- **Email**: Nodemailer
+- **Monitoring**: Sentry, PostHog
+- **Deployment**: Render.com
+
+## Architecture
+
+- **Database**: Prisma ORM with Supabase PostgreSQL
+  - Connection pooling via Supavisor (port 6543)
+  - Row Level Security (RLS) for multi-tenancy
+  - ~~Legacy MySQL/Sequelize support~~ **DISABLED**
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v18+ recommended)
-- MySQL server
+- Node.js (v18+ recommended, v22 on production)
+- Supabase account (PostgreSQL database)
 
 ### Installation
 
